@@ -1,3 +1,21 @@
+# Modified Version Of The REPO: High-Quality Multilingual Dataset for Structured Documentation Translation
+
+## NOTE: Only the evaluation scripts are important here.
+* These will be used in <a href="https://lotus.kuee.kyoto-u.ac.jp/WAT/NICT-SAP-Task/index.2022.struc.html">WAT2022's structured document translation task</a>
+
+## Installation:
+* Create virtualenv or conda environment and activate it
+* ```pip install -r requirements.txt```
+* ```bash install_moses.sh```
+* ```bash install_kytea_and_wat_scripts.sh```
+
+## Running:
+* ```python scripts/evaluate.py --target {reference file with sentences containing XML content one per line} --translation {translation file with sentences containing XML content one per line} --english_term scripts/english_terms.json --is_sent --lang {language}```
+* language can be basically any language code like en for English, de for German. 
+* In this modded repo, we have added support for Korean (ko) which was not supported by the original repo.
+* Note the ```--is_sent``` argument which means that unline the original repo, which expected json files, we have text files but with XML annotations per line. 
+
+
 # A High-Quality Multilingual Dataset for Structured Documentation Translation
 
 Kazuma Hashimoto, Raffaella Buschiazzo, James Bradbury, Teresa Marshall, Richard Socher, and Caiming Xiong <br>

@@ -39,6 +39,20 @@ def matchXML(trans: lxml.etree._Element,
 
     return True
 
+def notcontainsEMPTY(trans: lxml.etree._Element):
+    # print(trans.tag, trans.text)
+    if trans.text is None:
+        return False
+
+    trans = list(trans.iterchildren())
+    
+    
+    for t in trans:
+        if not notcontainsEMPTY(t):
+            return False
+
+    return True
+
 eng_regex = r'[.,\'/:a-zA-Z$]*[A-Z]+[.,\'/:a-zA-Z$]*'
 num_regex = r'[0-9.,\'/:]*[0-9]+[0-9.,\'/:]*'
 def num_tech_eval(translation: str,
@@ -121,14 +135,33 @@ def main():
                         type=str,
                         required=False,
                         help="JSON file path to English terms for the entity evaluation")
+
+    parser.add_argument("--lang",
+                        default="",
+                        type=str,
+                        help="The language in case input files are sentence level files")
+
+    parser.add_argument("--is_sent",
+                        action='store_true',
+                        help="Do we have json input files or sentence level files?")
     
     args = parser.parse_args()
 
     assert os.path.exists(args.target)
     assert os.path.exists(args.translation)
 
-    jsn_target = json.load(open(args.target, 'r'))
-    jsn_translation = json.load(open(args.translation, 'r'))
+    if args.is_sent:
+        jsn_target = {"lang":args.lang, "type":"target", "text":{}}
+        jsn_translation = {"lang":args.lang, "type":"translation", "text":{}}
+        
+        for idx, line in enumerate(open(args.target, 'r')):
+            jsn_target["text"][idx] = line.strip()
+
+        for idx, line in enumerate(open(args.translation, 'r')):
+            jsn_translation["text"][idx] = line.strip()
+    else:
+        jsn_target = json.load(open(args.target, 'r'))
+        jsn_translation = json.load(open(args.translation, 'r'))
 
     if os.path.exists(args.english_term):
         english_term = json.load(open(args.english_term, 'r'))
@@ -153,6 +186,7 @@ def main():
     tagTypeList = ['ph', 'xref', 'uicontrol', 'b', 'codeph', 'parmname', 'i', 'title',
                    'menucascade', 'varname', 'userinput', 'filepath', 'term',
                    'systemoutput', 'cite', 'li', 'ul', 'p', 'note', 'indexterm', 'u', 'fn']
+    tagTypeList +=  ["sap-icon-font-character", "i", "sap-technical-name", "uinolabel", "pname", "sap-icon-font-description", "key", "uicontrol", "cite", "xref", "field", "shipped_quantity", "q", "alt", "sap-icon-font-size", "image", "emphasis", "userinput", "dg_basic_description", "sap-icon-font", "menucascade", "sap-icon-background-color", "name", "sap-icon-font-color", "keys", "systemoutput"]
     tagBegList = ['<'+t+'>' for t in tagTypeList]
     tagEndList = ['</'+t+'>' for t in tagTypeList]
     tagList = tagBegList + tagEndList
@@ -166,17 +200,37 @@ def main():
     f_trans_with_tags = open(os.path.join(suffix, 'trans_struct.txt'), 'w')
     f_gold_without_tags = open(os.path.join(suffix, 'gold.txt'), 'w')
     f_gold_with_tags = open(os.path.join(suffix, 'gold_struct.txt'), 'w')
-    
+    skippedcount=0
+    unskippedcount=0
+    examples_with_tags = 0
+    examples_with_tags_matched = 0
     for target_id in jsn_target['text']:
         assert target_id in jsn_translation['text']
 
         target = jsn_target['text'][target_id].strip()
         translation = jsn_translation['text'][target_id].strip()
-
+        # print(target, "###", translation)
+            
         # XML structure evaluation
         xml_elm_target = convertToXML('<ROOT>{}</ROOT>'.format(target))
         xml_elm_translation = convertToXML('<ROOT>{}</ROOT>'.format(translation))
-        assert xml_elm_target is not None
+        # assert xml_elm_target is not None
+
+        if xml_elm_target is None:
+            # print("Erroneous sentence:", target)
+            skippedcount+=1
+            continue
+        
+        if len(list(xml_elm_target.iterchildren())) > 0: 
+            examples_with_tags += 1
+        
+        # if not notcontainsEMPTY(xml_elm_target):
+        #     print("Sentence with empty tags:", target)
+        #     skippedcount+=1
+        #     skipped_examples_with_tags+=1
+        #     continue
+        
+        unskippedcount+=1
 
         match = False
         if xml_elm_translation is not None:
@@ -185,6 +239,9 @@ def main():
             if matchXML(xml_elm_translation, xml_elm_target):
                 xml_match += 1
                 match = True
+                if len(list(xml_elm_target.iterchildren())) > 0:
+                    examples_with_tags_matched += 1
+            
 
         for tag in tagList:
             target = target.replace(tag, DUMMY)
@@ -204,6 +261,7 @@ def main():
         f_trans_without_tags.write(''.join(translation) + '\n')
         f_gold_without_tags.write(''.join(target) + '\n')
 
+        # print(target, "###", translation)
         if match:
             assert len(target) == len(translation)
             for i in range(len(target)):
@@ -240,9 +298,12 @@ def main():
         break
     f_trans.close()
 
+    totalcount = unskippedcount + skippedcount
     print("BLEU:", bleu)
     print("XML BLEU:", bleu_struct)
-
+    print("Total examples skipped:", skippedcount, "out of", totalcount)
+    print("Total tagged examples with matched structures:", examples_with_tags_matched, "out of", examples_with_tags)
+    print("Total XML matches:", xml_match, "out of", len(jsn_target['text']))
     os.system('rm -r ./{}*'.format(suffix))
     
 if __name__ == "__main__":

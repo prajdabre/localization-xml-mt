@@ -5,6 +5,7 @@
 
 ## Installation:
 * Create virtualenv or conda environment and activate it
+* Upgrade pip by ```pip install --upgrade pip```
 * ```pip install -r requirements.txt```
 * ```bash install_moses.sh```
 * ```bash install_kytea_and_wat_scripts.sh```

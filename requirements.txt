@@ -1,4 +1,3 @@
 lxml==4.9.0
 mecab-ko-dic==1.0.0
 mecab-python3==1.0.5
-tensor2tensor==1.14.0

@@ -53,6 +53,28 @@ def notcontainsEMPTY(trans: lxml.etree._Element):
 
     return True
 
+def getattribtags(trans: lxml.etree._Element):
+    # print(trans)
+    translist = list(trans.iterchildren())
+    # print(translist)
+    # print(len(translist) == 0, trans.text is None)
+    if len(translist) == 0 and trans.text is None:
+        # print("1")
+        attrs = (" ".join([i+"=\""+j+"\""+" " for i,j in trans.attrib.iteritems()])).strip()
+        if attrs != "": 
+            return ["<" + trans.tag + " " + attrs +"/>"]
+        else:
+            return []
+    elif len(translist) == 0 and trans.text is not None:
+        # print("2")
+        return []
+    else:
+        # print("3")
+        final = []
+        for t in translist:
+            final += getattribtags(t)
+        return final
+
 eng_regex = r'[.,\'/:a-zA-Z$]*[A-Z]+[.,\'/:a-zA-Z$]*'
 num_regex = r'[0-9.,\'/:]*[0-9]+[0-9.,\'/:]*'
 def num_tech_eval(translation: str,
@@ -242,9 +264,17 @@ def main():
                 if len(list(xml_elm_target.iterchildren())) > 0:
                     examples_with_tags_matched += 1
             
+                empty_tags_target = getattribtags(xml_elm_target)
+                empty_tags_translation = getattribtags(xml_elm_translation)
+        
 
         for tag in tagList:
             target = target.replace(tag, DUMMY)
+            translation = translation.replace(tag, DUMMY)
+        for tag in empty_tags_target:
+            target = target.replace(tag, DUMMY)
+        
+        for tag in empty_tags_translation:
             translation = translation.replace(tag, DUMMY)
         target = de_escape(target)
         translation = de_escape(translation)
@@ -263,6 +293,7 @@ def main():
 
         # print(target, "###", translation)
         if match:
+            # print(target, "###", translation)
             assert len(target) == len(translation)
             for i in range(len(target)):
                 f_trans_with_tags.write(translation[i] + '\n')

@@ -62,12 +62,17 @@ def getattribtags(trans: lxml.etree._Element):
         # print("1")
         attrs = (" ".join([i+"=\""+j+"\""+" " for i,j in trans.attrib.iteritems()])).strip()
         if attrs != "": 
-            return ["<" + trans.tag + " " + attrs +"/>"]
+            return ["<" + trans.tag + " " + attrs +"/>", "<" + trans.tag + " " + attrs +">", "<" + trans.tag +"/>", "</" + trans.tag +">"]
         else:
-            return []
-    elif len(translist) == 0 and trans.text is not None:
+            return ["<" + trans.tag +"/>"]
+    elif len(translist) == 0 and trans.text is not None and trans.tag != "ROOT":
         # print("2")
-        return []
+        # return []
+        attrs = (" ".join([i+"=\""+j+"\""+" " for i,j in trans.attrib.iteritems()])).strip()
+        if attrs != "": 
+            return ["<" + trans.tag + " " + attrs +">", "<" + trans.tag +"/>", "</" + trans.tag +">"]
+        else:
+            return ["<" + trans.tag +">", "<" + trans.tag +"/>", "</" + trans.tag +">"]
     else:
         # print("3")
         final = []
@@ -171,16 +176,24 @@ def main():
 
     assert os.path.exists(args.target)
     assert os.path.exists(args.translation)
-
+    suffix = str(random.randint(0, 100000000000000))
+    assert not os.path.exists(suffix)
+    os.mkdir(suffix)
+    
     if args.is_sent:
         jsn_target = {"lang":args.lang, "type":"target", "text":{}}
         jsn_translation = {"lang":args.lang, "type":"translation", "text":{}}
-        
+        ## Write the raw files to tmp folder
+        raw_file = open(os.path.join(suffix, 'gold_orig.txt'), 'w') 
         for idx, line in enumerate(open(args.target, 'r')):
             jsn_target["text"][idx] = line.strip()
-
+            raw_file.write(line)
+        raw_file.close()
+        raw_file = open(os.path.join(suffix, 'trans_orig.txt'), 'w') 
         for idx, line in enumerate(open(args.translation, 'r')):
             jsn_translation["text"][idx] = line.strip()
+            raw_file.write(line)
+        raw_file.close()
     else:
         jsn_target = json.load(open(args.target, 'r'))
         jsn_translation = json.load(open(args.translation, 'r'))
@@ -215,9 +228,6 @@ def main():
 
     DUMMY = '####DUMMY###SEPARATOR###DUMMY###'
 
-    suffix = str(random.randint(0, 100000000000000))
-    assert not os.path.exists(suffix)
-    os.mkdir(suffix)
     f_trans_without_tags = open(os.path.join(suffix, 'trans.txt'), 'w')
     f_trans_with_tags = open(os.path.join(suffix, 'trans_struct.txt'), 'w')
     f_gold_without_tags = open(os.path.join(suffix, 'gold.txt'), 'w')
@@ -266,6 +276,8 @@ def main():
             
                 empty_tags_target = getattribtags(xml_elm_target)
                 empty_tags_translation = getattribtags(xml_elm_translation)
+                # if empty_tags_translation != []:
+                    # print(empty_tags_target, empty_tags_translation)
         
 
         for tag in tagList:
@@ -333,7 +345,7 @@ def main():
     print("BLEU:", bleu)
     print("XML BLEU:", bleu_struct)
     print("Total examples skipped:", skippedcount, "out of", totalcount)
-    print("Total tagged examples with matched structures:", examples_with_tags_matched, "out of", examples_with_tags)
+    print("Total tagged examples with matched structures:", examples_with_tags_matched, "out of", examples_with_tags, "and accuracy:", round(100*examples_with_tags_matched/examples_with_tags, 2))
     print("Total XML matches:", xml_match, "out of", len(jsn_target['text']))
     os.system('rm -r ./{}*'.format(suffix))
     
